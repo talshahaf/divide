@@ -174,7 +174,7 @@ class Router(Resource):
     def put(self, session_id, method):
         if session_id not in sessions:
             return '', 404
-        return sessions[session_id].put(method, **{k: v for k, v in flask.request.args.items()})
+        return sessions[session_id].put(method, **{k: v for k, v in flask.request.form.items()})
 
 def analyze_image(img_data):
     results = process.process_receipt(img_data, _180=False)

@@ -22,6 +22,36 @@ input[type=number] {
 </style>
 <script>
 
+var session_id = 12345;
+var state = null;
+function get(no_images) {
+    $.get('ajax/' + session_id + '/' + (no_images === undefined ? 'get' : 'no_images'), function(data) {
+        merge(JSON.parse(data));
+    });
+}
+
+function put(method, kwargs, success) {
+    $.ajax({
+        url: 'ajax/' + session_id + '/' + method,
+        type: 'PUT',
+        data: jQuery.param(kwargs),
+        success: success
+    });
+}
+
+function merge(new_state) {
+    if (state !== null) {
+        for (
+    
+        //added
+        //removed
+        //changed
+        
+    }
+    state = new_state;
+}
+
+
 function countBtnClick(e){
     e.preventDefault();
     
