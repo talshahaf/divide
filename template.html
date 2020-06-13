@@ -1,0 +1,480 @@
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+
+<style>
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+</style>
+<script>
+
+function countBtnClick(e){
+    e.preventDefault();
+    
+    fieldName = $(this).attr('data-field');
+    type      = $(this).attr('data-type');
+    var input = $(this).parent().parent().find("input").first();
+    var currentVal = parseInt(input.val());
+    if (!isNaN(currentVal)) {
+        if(type == 'minus') {
+            
+            if(currentVal > input.attr('min')) {
+                input.val(currentVal - 1).change();
+            } 
+            if(parseInt(input.val()) == input.attr('min')) {
+                $(this).attr('disabled', true);
+            }
+
+        } else if(type == 'plus') {
+
+            if(currentVal < input.attr('max')) {
+                input.val(currentVal + 1).change();
+            }
+            if(parseInt(input.val()) == input.attr('max')) {
+                $(this).attr('disabled', true);
+            }
+
+        }
+    } else {
+        input.val(0);
+    }
+}
+
+function inputNumberChange() {
+    
+    minValue =  parseFloat($(this).attr('min'));
+    maxValue =  parseFloat($(this).attr('max'));
+    valueCurrent = parseFloat($(this).val());
+    
+    if(isNaN(valueCurrent) || !isFinite(valueCurrent)) {
+        valueCurrent = $(this).attr('data-old-value');
+        $(this).val(valueCurrent);
+    }
+    
+    name = $(this).attr('name');
+    if(valueCurrent >= minValue) {
+        $(this).parent().find(".btn-number[data-type='minus']").first().removeAttr('disabled')
+    } else {
+        $(this).val(minValue);
+    }
+    if(valueCurrent <= maxValue) {
+        $(this).parent().find(".btn-number[data-type='plus']").first().removeAttr('disabled')
+    } else {
+        $(this).val(maxValue);
+    }
+    
+    $(this).attr('data-old-value', $(this).val());
+}
+
+function getCard(el) {
+    return $(el).closest('.item-card');
+}
+
+function getConsumer(el) {
+    return $(el).closest('.consumer');
+}
+
+function allCards() {
+    return $('.item-card');
+}
+
+function getSames(card) {
+    return card.parent().find('[data-index="'+card.attr('data-index')+'"]');
+}
+
+function changeSames(el, sel) {
+    var card = getCard(el);
+    var sames = getSames(card);
+    for(var i = 0; i < sames.length; i++) {
+        var sameEl = $(sames[i]).find(sel).first();
+        sameEl.val(el.val());
+        sameEl.attr('data-old-value', el.val());
+    }
+}
+
+function updatePrice(priceElem) {
+    var card = getCard(priceElem);
+    var index = card.attr('data-index');
+    var price = parseFloat(priceElem.val());
+    results[index].price = price;
+    changeSames(priceElem, '.item-price');
+    
+    recalcConsumers();
+}
+
+function updateCount(countElem) {
+    var card = getCard(countElem);
+    var index = card.attr('data-index');
+    var count = parseInt(countElem.val());
+    results[index].count = count;  
+    changeSames(countElem, '.item-count');
+    
+    var sames = getSames(card);
+    var diff = count - sames.length;
+    if (diff > 0) {
+        for(var i = 0; i < diff; i++) {
+            createCard(index, card);
+        }
+    } else if (diff < 0) {
+        diff = -diff;
+        for(var i = sames.length - 1; diff > 0 && i >= 0; i--) {
+            if (sames[i] != card[0]) {
+                if (sames[i] == selected_item) {
+                    selected_item = undefined;
+                }
+                sames[i].remove();
+                diff -= 1;
+            }
+        }
+    }
+    
+    recalcConsumers();
+}
+
+function countChange() {
+    updateCount($(this));
+}
+
+function priceChange() {
+    updatePrice($(this));
+}
+
+function resetClick() {
+    var card = getCard($(this));
+    var index = card.attr('data-index');
+    var count = card.find('.item-count').first();
+    var price = card.find('.item-price').first();
+    
+    if (index >= original_results.length) {
+        //custom, remove all same
+        var sames = getSames(card);
+        for(var i = 0; i < sames.length; i++) {
+            if (sames[i] == selected_item) {
+                selected_item = undefined;
+            }
+            sames[i].remove();
+        }
+    } else {
+        results[index] = JSON.parse(JSON.stringify(original_results[index]));
+        
+        var result = results[index];
+        count.val(result.count);
+        count.attr('data-old-value', result.count);
+        price.val(result.price);
+        price.attr('data-old-value', result.price);
+
+        updateCount(count);
+        updatePrice(price);
+        changeConsumer(card);
+    }
+    recalcConsumers();
+}
+
+function zeroPriceClick() {
+    var card = getCard($(this));
+    var price = card.find('.item-price').first();
+    
+    price.val(0);
+    updatePrice(price);
+}
+
+function allConsumers() {
+    return $('.consumer');
+}
+
+function consumerResetClick() {
+    var allcards = allCards();
+    var consumer_index = getConsumer($(this)).attr('data-index');
+    for (var index = 0; index < allcards.length; index++) {
+        var item = $(allcards[index]);
+        if (consumer_index == -1 || item.attr('data-consumer') == consumer_index) {
+            changeConsumer(item);
+        }
+    }
+    recalcConsumers();
+}
+
+function changeConsumer(item, new_consumer) {
+    var prev_consumer = item.attr('data-consumer');
+    if (prev_consumer != -1) {
+        item.removeClass(consumer_colors[prev_consumer]);
+    }
+    
+    if (new_consumer !== undefined) {
+        item.attr('data-consumer', new_consumer.attr('data-index'));
+        item.addClass(consumer_colors[new_consumer.attr('data-index')]);
+    } else {
+        item.attr('data-consumer', -1);
+    }
+}
+
+function recalcConsumers() {
+    var allconsumers = allConsumers();
+    var allcards = allCards();
+    
+    var sum = new Array(allconsumers.length).fill(0.0);
+    var left_sum = 0.0;
+    
+    for (var index = 0; index < allcards.length; index++) {
+        var item = $(allcards[index]);
+        var price = results[item.attr('data-index')].price;
+        if (results[item.attr('data-index')].count > 0) {
+            if (item.attr('data-consumer') != -1) {
+                sum[item.attr('data-consumer')] += price
+            } else {
+                left_sum += price;
+            }
+        }
+    }
+        
+    for (var index = 0; index < allconsumers.length; index++) {
+        var consumer_index = $(allconsumers[index]).attr('data-index');
+        if (consumer_index != -1) {
+            $(allconsumers[index]).find('.consumer-price').text(sum[consumer_index].toFixed(2));
+        } else {
+            $(allconsumers[index]).find('.consumer-price').text(left_sum.toFixed(2));
+        }
+    }
+}
+
+var selected_item = undefined;
+var consumer_colors = ['bg-primary', 'bg-secondary', 'bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'bg-light', 'bg-dark'];
+
+function cardConsumerClick(el, isCard) {
+    if (isCard) {
+        if (selected_item !== undefined) {
+            selected_item.removeClass('border-primary');
+        }
+        selected_item = el;
+        selected_item.addClass('border-primary');
+    } else {
+        if (selected_item !== undefined) {
+            selected_item.removeClass('border-primary');
+            
+            changeConsumer(selected_item, el);
+            recalcConsumers();
+        
+            selected_item = undefined;
+        }
+    }
+}
+
+function createCard(index, afterElement) {
+    var temp = $('#item-template');
+    
+    var result = results[index];
+    var clon = temp.contents().clone();
+    
+    clon.attr('data-index', index);
+    clon.attr('data-consumer', -1);
+    
+    var image = clon.find('.item-image').first();
+    var title = clon.find('.card-title').first();
+    var count = clon.find('.item-count').first();
+    var price = clon.find('.item-price').first();
+    
+    if (result.image) {
+        image.attr('src', 'data:image/png;base64,' + result.image);
+        image.attr('width', 300);
+        image.attr('title', result.entry);
+        title.css('display', 'none');
+    } else {
+        image.css('display', 'none');
+        title.css('display', 'block');
+    }
+    
+    count.val(result.count);
+    count.attr('data-old-value', result.count);
+    
+    price.val(result.price);
+    price.attr('data-old-value', result.price);
+    
+    clon.find('.btn-number').click(countBtnClick);
+    price.change(inputNumberChange);
+    price.change(priceChange);
+    count.change(inputNumberChange);
+    count.change(countChange);
+    
+    clon.find('.btn-reset').click(resetClick);
+    clon.find('.btn-zero-price').click(zeroPriceClick);
+    clon.click(function() { cardConsumerClick($(this), true); });
+    
+    if (afterElement === undefined) {
+        clon.appendTo('#cards');
+    }
+    else {
+        clon.insertAfter(afterElement);
+    }
+}
+
+function addItem() {
+    var new_result = JSON.parse(JSON.stringify(results[0]));
+    //everything we know
+    new_result['image'] = '';
+    new_result['price'] = 0.0;
+    new_result['count'] = 1;
+    new_result['confidence'] = 0;
+    new_result['entry'] = '';
+    
+    results.push(new_result);
+    
+    createCard(results.length - 1);
+    recalcConsumers();
+}
+
+function createConsumer(index, isLeft) {
+    var temp = $('#consumer-template');
+    var clon = temp.contents().clone();
+    
+    if(index != -1) {
+        if (isLeft) {
+            clon.addClass('rounded-right');
+            clon.addClass('border-left-0');
+            clon.css('left', '0');
+            clon.css('margin-left', '0');
+        } else {
+            clon.addClass('rounded-left');
+            clon.addClass('border-right-0');
+            clon.css('right', '0');
+            clon.css('margin-right', '0');
+        }
+    }
+    
+    clon.attr('data-index', index);
+    
+    clon.find('.btn-reset').click(consumerResetClick);
+    
+    if (index == -1) {
+        clon.find('.card-title').css('visibility', 'hidden');
+        clon.find('.btn-add').css('display', 'inline-block');
+        clon.find('.btn-add').click(addItem);
+    } else {
+        clon.addClass(consumer_colors[index]);
+        clon.click(function() { cardConsumerClick($(this), false); });
+    }
+    
+    if (index == -1) {
+        clon.css('margin', 'auto');
+        clon.css('width', '400px');
+        clon.appendTo('#cards');
+    } else if (isLeft) {
+        clon.appendTo('#left-consumers');
+    } else {
+        clon.appendTo('#right-consumers');
+    }
+}
+
+var original_results = [];
+var results = []
+function onResults(r) {
+    results = r;
+    original_results = JSON.parse(JSON.stringify(results));
+
+    for(var index = -1; index < 8; index++) {
+        createConsumer(index, index % 2 == 0);
+    }
+    
+    for (var index = 0; index < results.length; index++) {
+        createCard(index);
+        
+        for(var count_index = 0; count_index < results[index].count - 1; count_index++) {
+            createCard(index);
+        }
+    }
+    
+    recalcConsumers();
+}
+
+</script>
+
+</head>
+<body style="min-width: 800px">
+
+<div>
+<div id="left-consumers" style="position: fixed; top: 0; left: 0;"></div>
+<div id="cards" style="margin: auto;"></div>
+<div id="right-consumers"  style="position: fixed; top: 0; right: 0;"></div>
+</div>
+
+<template id="consumer-template">
+<div class="consumer card active" style="width: 200px; margin: 10px;">
+    <div class="card-body">
+        <input type="text" class="card-title form-control" placeholder="Name"></input>
+        <h4 class="consumer-price card-text" style="text-align: center;">0.00</h4>
+        
+        <div style="display: block; float: right;">
+            <button class="btn btn-outline-secondary btn-reset btn-sm" type="button"><span class="fa fa-undo"></span></button>
+            <button class="btn btn-success btn-add btn-sm" type="button" style="display: none;"><span class="fa fa-plus"></span></button>
+        </div>
+    </div>
+</div>
+</template>
+
+<template id="item-template">
+<div class="item-card card active rounded-lg mb-3 border" style="margin: auto; width: 400px;">
+  <div class="card-body">
+    <div style="padding: 10px; text-align: center;">
+    
+        <div style="padding: 20px;">
+            <img class="item-image"></img>
+            <input type="text" class="card-title form-control" placeholder="Name" style="display:none;"></input>
+        </div>
+    
+        <!-- price -->
+        <div style="display: inline-block; width: 120px; padding: 5px;">
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <button class="btn btn-outline-secondary btn-zero-price" type="button" id="button-addon1"><span class="fa fa-minus"></span></button>
+                </div>
+                <input type="number" class="item-price form-control input-number" step="any" min="0" max="1000"></input>
+            </div>
+        </div>
+        <!---->
+        
+        <!-- count -->
+        <div style="display: inline-block; width: 150px; padding: 5px;">
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <button class="btn btn-outline-secondary btn-number" type="button" id="button-addon1" data-type="minus"><span class="fa fa-minus"></span></button>
+                </div>
+                <input type="number" class="item-count form-control input-number" min="1" max="10"></input>
+                <div class="input-group-append">
+                    <button class="btn btn-outline-secondary btn-number" type="button" id="button-addon2" data-type="plus"><span class="fa fa-plus"></span></button>
+                </div>
+            </div>
+        </div>
+        <!---->
+        
+        <!--reset-->
+        <div>
+            <div style="display: block; float: right;">
+                <button class="btn btn-outline-secondary btn-reset btn-sm" type="button"><span class="fa fa-undo"></span></button>
+            </div>
+        </div>
+        <!---->
+    </div>
+  </div>
+</div>
+</template>
+
+<script>
+var obj = "****obj****";
+var parsed = JSON.parse(obj);
+document.onload = onResults(parsed);
+</script>
+</body>
+</html>
